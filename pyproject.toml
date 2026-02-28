@@ -1,0 +1,27 @@
+[project]
+name = "qe-lsp"
+version = "0.1.0"
+description = "Language Server Protocol for qe"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "pygls>=1.2.0",
+    "lsprotocol>=2023.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "black",
+    "ruff",
+    "mypy",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+qe-lsp = "qe_lsp.server:main"
