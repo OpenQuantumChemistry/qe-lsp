@@ -3,7 +3,6 @@ __version__ = "0.1.0"
 
 from qe_lsp.parser import (
     parse_qe_input,
-    get_parameter_doc as get_parser_param_doc,
     get_namelist_params,
     get_card_names,
     QEInputFile,

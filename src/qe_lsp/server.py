@@ -6,6 +6,25 @@ from __future__ import annotations
 
 from typing import Any, TYPE_CHECKING
 
+from lsprotocol.types import (
+    CompletionItem,
+    CompletionItemKind,
+    CompletionList,
+    CompletionParams,
+    Diagnostic,
+    DiagnosticSeverity,
+    DocumentSymbol,
+    DocumentSymbolParams,
+    Hover,
+    HoverParams,
+    MarkupContent,
+    MarkupKind,
+    Position,
+    Range,
+    SymbolKind,
+    TextDocumentPositionParams,
+)
+
 if TYPE_CHECKING:
     from pygls.server import LanguageServer
     from pygls.workspace import Document
@@ -27,26 +46,6 @@ def _get_server():
 @property
 def server():
     return _get_server()
-
-
-from lsprotocol.types import (
-    CompletionItem,
-    CompletionItemKind,
-    CompletionList,
-    CompletionParams,
-    Diagnostic,
-    DiagnosticSeverity,
-    DocumentSymbol,
-    DocumentSymbolParams,
-    Hover,
-    HoverParams,
-    MarkupContent,
-    MarkupKind,
-    Position,
-    Range,
-    SymbolKind,
-    TextDocumentPositionParams,
-)
 
 
 def _get_word_at_position(doc: "Document", position: Position) -> tuple[str, Range]:
