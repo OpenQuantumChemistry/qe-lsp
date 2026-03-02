@@ -612,3 +612,4 @@ def get_word_at_position(text: str, line: int, column: int) -> Tuple[Optional[st
 
     word = line_text[start:end] if start < end else None
     return word, start, end
+\n\n# Alias for compatibility\nparse = parse_qe_input\n

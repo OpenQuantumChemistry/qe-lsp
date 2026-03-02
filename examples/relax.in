@@ -1,0 +1,50 @@
+! Ionic relaxation calculation for water molecule
+
+&control
+    calculation = 'relax'
+    title = 'Water Relaxation'
+    prefix = 'h2o'
+    pseudo_dir = './pseudo/'
+    outdir = './tmp/'
+    verbosity = 'high'
+    restart_mode = 'from_scratch'
+    tprnfor = .true.
+    etot_conv_thr = 1.0d-4
+    forc_conv_thr = 1.0d-3
+    nstep = 100
+/
+
+&system
+    ibrav = 1
+    A = 10.0
+    nat = 3
+    ntyp = 2
+    ecutwfc = 40.0
+    ecutrho = 320.0
+    input_dft = 'PBE'
+/
+
+&electrons
+    electron_maxstep = 100
+    conv_thr = 1.0d-6
+    mixing_mode = 'plain'
+    mixing_beta = 0.7
+    diagonalization = 'david'
+/
+
+&ions
+    ion_dynamics = 'bfgs'
+    upscale = 100.0
+    bfgs_ndim = 1
+/
+
+ATOMIC_SPECIES
+ O  15.9994  O.pbe-n-rrkjus_psl.1.0.0.UPF
+ H   1.0079  H.pbe-rrkjus_psl.1.0.0.UPF
+
+ATOMIC_POSITIONS angstrom
+ O   0.000000000   0.000000000   0.000000000
+ H   0.757160000   0.586260000   0.000000000
+ H  -0.757160000   0.586260000   0.000000000
+
+K_POINTS gamma

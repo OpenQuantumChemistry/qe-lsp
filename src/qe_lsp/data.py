@@ -83,3 +83,40 @@ Values:
 def get_parameter_doc(namelist: str, param: str) -> str | None:
     """Get documentation for a parameter."""
     return PARAMETER_DOCS.get(namelist.lower(), {}).get(param.lower())
+
+# Card documentation
+CARD_DOCS: dict[str, str] = {
+    "ATOMIC_SPECIES": """Defines atomic species and pseudopotentials.
+
+Format:
+  ATOMIC_SPECIES
+  label  mass  pseudo_file""",
+    "ATOMIC_POSITIONS": """Defines atomic positions in the unit cell.
+
+Format:
+  ATOMIC_POSITIONS { alat | bohr | angstrom | crystal }
+  label  x  y  z  [if_pos(1) if_pos(2) if_pos(3)]""",
+    "K_POINTS": """Defines the k-point grid.
+
+Format:
+  K_POINTS { automatic | gamma | crystal }""",
+    "CELL_PARAMETERS": """Defines the unit cell vectors.
+
+Format:
+  CELL_PARAMETERS { alat | bohr | angstrom }
+  v1(1) v1(2) v1(3)
+  v2(1) v2(2) v2(3)
+  v3(1) v3(2) v3(3)""",
+}
+
+
+def get_card_doc(card: str) -> str | None:
+    """Get documentation for a card.
+
+    Args:
+        card: The card name (e.g., 'ATOMIC_SPECIES')
+
+    Returns:
+        Documentation string or None if not found.
+    """
+    return CARD_DOCS.get(card.upper())
