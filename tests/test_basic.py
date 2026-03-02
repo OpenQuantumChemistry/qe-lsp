@@ -20,10 +20,10 @@ def test_all_exports():
     import qe_lsp
     assert "parse" in qe_lsp.__all__
     assert "QEParser" in qe_lsp.__all__
+    assert "QEInputFile" in qe_lsp.__all__
     assert "QEInput" in qe_lsp.__all__
     assert "Namelist" in qe_lsp.__all__
     assert "Card" in qe_lsp.__all__
-    assert "Parameter" in qe_lsp.__all__
     assert "get_parameter_doc" in qe_lsp.__all__
     assert "get_card_doc" in qe_lsp.__all__
     assert "server" in qe_lsp.__all__
@@ -47,7 +47,7 @@ def test_docs_exports():
 def test_parse_function():
     """Test that parse function works."""
     from qe_lsp import parse
-    result = parse("&control\\n/")
+    result = parse("&control\n/")
     assert result is not None
     assert "control" in result.namelists
 

@@ -1,11 +1,33 @@
-
 """
 Quantum ESPRESSO Language Server Protocol implementation
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pygls.server import LanguageServer
+    from pygls.workspace import Document
+
+_server_instance = None
+
+
+def _get_server():
+    """Lazy initialization of the language server."""
+    global _server_instance
+    if _server_instance is None:
+        from pygls.server import LanguageServer
+        _server_instance = LanguageServer("qe-lsp", "0.1.0")
+        _setup_features(_server_instance)
+    return _server_instance
+
+
+# Export server for backward compatibility (lazy)
+@property
+def server():
+    return _get_server()
+
 
 from lsprotocol.types import (
     CompletionItem,
@@ -25,31 +47,21 @@ from lsprotocol.types import (
     SymbolKind,
     TextDocumentPositionParams,
 )
-from pygls.server import LanguageServer
-from pygls.workspace import Document
-
-from .data import get_parameter_doc
-from .parser import parse
-
-server = LanguageServer("qe-lsp", "0.1.0")
 
 
-def _get_word_at_position(doc: Document, position: Position) -> tuple[str, Range]:
+def _get_word_at_position(doc: "Document", position: Position) -> tuple[str, Range]:
     """Get the word at the given position."""
     lines = doc.source.split("\n")
     if position.line >= len(lines):
         return "", Range(position, position)
     
     line = lines[position.line]
-    # Find word boundaries
     start = position.character
     end = position.character
     
-    # Expand left
     while start > 0 and (line[start - 1].isalnum() or line[start - 1] in "_-"):
         start -= 1
     
-    # Expand right
     while end < len(line) and (line[end].isalnum() or line[end] in "_-"):
         end += 1
     
@@ -61,7 +73,7 @@ def _get_word_at_position(doc: Document, position: Position) -> tuple[str, Range
     return word, word_range
 
 
-def _get_namelist_at_position(doc: Document, position: Position) -> str | None:
+def _get_namelist_at_position(doc: "Document", position: Position) -> str | None:
     """Determine which namelist the position is in."""
     lines = doc.source.split("\n")[:position.line + 1]
     current_namelist = None
@@ -69,31 +81,29 @@ def _get_namelist_at_position(doc: Document, position: Position) -> str | None:
     for i, line in enumerate(lines):
         line_lower = line.strip().lower()
         if line_lower.startswith("&") and not line_lower.startswith("&end"):
-            current_namelist = line_lower[1:].split()[0]
-        elif line_lower == "&end":
-            # Check if this &end is before our position
+            name_part = line_lower[1:].split()[0] if len(line_lower) > 1 else ""
+            current_namelist = name_part if name_part else None
+        elif line_lower.startswith("/") or line_lower == "&end":
             if i < position.line:
                 current_namelist = None
     
     return current_namelist
 
 
-@server.feature("textDocument/completion")
-def completion(params: CompletionParams | TextDocumentPositionParams) -> CompletionList | None:
+def _completion_handler(params: CompletionParams | TextDocumentPositionParams) -> CompletionList | None:
     """Provide completion items."""
-    doc = server.workspace.get_text_document(params.text_document.uri)
+    srv = _get_server()
+    doc = srv.workspace.get_text_document(params.text_document.uri)
     position = params.position
     
-    # Get current word and namelist context
     word, _ = _get_word_at_position(doc, position)
     namelist = _get_namelist_at_position(doc, position)
     
     items = []
     
-    # If inside a namelist, offer parameter completions
     if namelist:
-        from .parser import QEParser
-        valid_params = QEParser.VALID_PARAMS.get(namelist, [])
+        from .parser import get_namelist_params
+        valid_params = get_namelist_params(namelist)
         
         for param in valid_params:
             if word.lower() in param.lower():
@@ -104,7 +114,6 @@ def completion(params: CompletionParams | TextDocumentPositionParams) -> Complet
                     insert_text=f"{param} = ",
                 ))
     else:
-        # Offer namelist and card completions
         namelists = ["control", "system", "electrons", "ions", "cell"]
         for nl in namelists:
             if word.lower() in nl.lower():
@@ -112,8 +121,7 @@ def completion(params: CompletionParams | TextDocumentPositionParams) -> Complet
                     label=f"&{nl}",
                     kind=CompletionItemKind.Class,
                     detail="Namelist",
-                    insert_text=f"&{nl}\n\n/&end",
-                    insert_text_format=2,  # Snippet
+                    insert_text=f"&{nl}\n\n/",
                 ))
         
         cards = ["ATOMIC_SPECIES", "ATOMIC_POSITIONS", "K_POINTS", "CELL_PARAMETERS"]
@@ -128,21 +136,20 @@ def completion(params: CompletionParams | TextDocumentPositionParams) -> Complet
     return CompletionList(is_incomplete=False, items=items)
 
 
-@server.feature("textDocument/hover")
-def hover(params: HoverParams | TextDocumentPositionParams) -> Hover | None:
+def _hover_handler(params: HoverParams | TextDocumentPositionParams) -> Hover | None:
     """Provide hover information."""
-    doc = server.workspace.get_text_document(params.text_document.uri)
+    srv = _get_server()
+    doc = srv.workspace.get_text_document(params.text_document.uri)
     position = params.position
     
     word, _ = _get_word_at_position(doc, position)
     if not word:
         return None
     
-    # Check if we're in a namelist
     namelist = _get_namelist_at_position(doc, position)
     
     if namelist:
-        # Look for parameter documentation
+        from .data import get_parameter_doc
         doc_text = get_parameter_doc(namelist, word)
         if doc_text:
             return Hover(
@@ -152,7 +159,6 @@ def hover(params: HoverParams | TextDocumentPositionParams) -> Hover | None:
                 )
             )
     
-    # Check for namelist documentation
     if word.lower() in ["control", "system", "electrons", "ions", "cell"]:
         return Hover(
             contents=MarkupContent(
@@ -161,11 +167,11 @@ def hover(params: HoverParams | TextDocumentPositionParams) -> Hover | None:
             )
         )
     
-    # Check for card documentation
     if word.upper() in ["ATOMIC_SPECIES", "ATOMIC_POSITIONS", "K_POINTS", "CELL_PARAMETERS"]:
-        from .data import get_card_doc
-        doc_text = get_card_doc(word)
-        if doc_text:
+        from .data import get_card_doc, format_card_hover
+        card_doc = get_card_doc(word)
+        if card_doc:
+            doc_text = format_card_hover(card_doc)
             return Hover(
                 contents=MarkupContent(
                     kind=MarkupKind.Markdown,
@@ -176,23 +182,23 @@ def hover(params: HoverParams | TextDocumentPositionParams) -> Hover | None:
     return None
 
 
-@server.feature("textDocument/diagnostic")
-def diagnostic(params: Any) -> list[Diagnostic]:
+def _diagnostic_handler(params: Any) -> list[Diagnostic]:
     """Provide diagnostics for the document."""
-    doc = server.workspace.get_text_document(params.text_document.uri)
+    srv = _get_server()
+    doc = srv.workspace.get_text_document(params.text_document.uri)
     
-    # Parse the document
+    from .parser import parse
     result = parse(doc.source)
     
     diagnostics = []
     for error in result.errors:
-        severity = DiagnosticSeverity.Error if error.severity == "error" else DiagnosticSeverity.Warning
+        severity = DiagnosticSeverity.Error if error.get("severity") == "error" else DiagnosticSeverity.Warning
         diagnostics.append(Diagnostic(
             range=Range(
-                Position(line=error.line - 1, character=error.column - 1),
-                Position(line=error.line - 1, character=error.column)
+                Position(line=error.get("line", 1) - 1, character=error.get("column", 1) - 1),
+                Position(line=error.get("line", 1) - 1, character=error.get("column", 1))
             ),
-            message=error.message,
+            message=error.get("message", ""),
             severity=severity,
             source="qe-lsp"
         ))
@@ -200,29 +206,29 @@ def diagnostic(params: Any) -> list[Diagnostic]:
     return diagnostics
 
 
-@server.feature("textDocument/documentSymbol")
-def document_symbol(params: DocumentSymbolParams) -> list[DocumentSymbol]:
+def _document_symbol_handler(params: DocumentSymbolParams) -> list[DocumentSymbol]:
     """Provide document symbols (outline)."""
-    doc = server.workspace.get_text_document(params.text_document.uri)
+    srv = _get_server()
+    doc = srv.workspace.get_text_document(params.text_document.uri)
+    
+    from .parser import parse
     result = parse(doc.source)
     
     symbols = []
     
-    # Add namelists
     for name, namelist in result.namelists.items():
         children = []
-        for param_name, param in namelist.parameters.items():
+        for param_name in namelist.parameters.keys():
             children.append(DocumentSymbol(
                 name=param_name,
-                detail=str(param.value),
                 kind=SymbolKind.Property,
                 range=Range(
-                    Position(line=param.line - 1, character=0),
-                    Position(line=param.line - 1, character=100)
+                    Position(line=namelist.line_start - 1, character=0),
+                    Position(line=namelist.line_start - 1, character=100)
                 ),
                 selection_range=Range(
-                    Position(line=param.line - 1, character=param.column - 1),
-                    Position(line=param.line - 1, character=param.column + len(param_name) - 1)
+                    Position(line=namelist.line_start - 1, character=0),
+                    Position(line=namelist.line_start - 1, character=100)
                 )
             ))
         
@@ -240,7 +246,6 @@ def document_symbol(params: DocumentSymbolParams) -> list[DocumentSymbol]:
             children=children
         ))
     
-    # Add cards
     for name, card in result.cards.items():
         symbols.append(DocumentSymbol(
             name=name,
@@ -258,9 +263,32 @@ def document_symbol(params: DocumentSymbolParams) -> list[DocumentSymbol]:
     return symbols
 
 
+def _setup_features(srv: "LanguageServer"):
+    """Setup LSP features on the server."""
+    srv.feature("textDocument/completion")(_completion_handler)
+    srv.feature("textDocument/hover")(_hover_handler)
+    srv.feature("textDocument/diagnostic")(_diagnostic_handler)
+    srv.feature("textDocument/documentSymbol")(_document_symbol_handler)
+
+
+# For testing purposes - expose handlers
+def completion(params):
+    return _completion_handler(params)
+
+def hover(params):
+    return _hover_handler(params)
+
+def diagnostic(params):
+    return _diagnostic_handler(params)
+
+def document_symbol(params):
+    return _document_symbol_handler(params)
+
+
 def main() -> None:
     """Start the language server."""
-    server.start_io()
+    srv = _get_server()
+    srv.start_io()
 
 
 if __name__ == "__main__":
