@@ -128,7 +128,8 @@ class QELexer:
             if self.peek() == '\\':
                 self.advance()
             value += self.advance()
-        self.advance()  # closing quote
+        if self.peek() == quote:
+            self.advance()  # closing quote
         return Token(TokenType.STRING, value, start_line, start_col)
 
     def read_number(self) -> Token:
@@ -136,8 +137,15 @@ class QELexer:
         start_line = self.line
         start_col = self.column
         value = ''
-        while self.peek().isdigit() or self.peek() in '.+-eEdD':
+        # Handle leading sign
+        if self.peek() in '+-':
             value += self.advance()
+        while self.peek().isdigit() or self.peek() in '.eEdD':
+            char = self.peek()
+            value += self.advance()
+            # Handle exponent sign
+            if char.lower() == 'e' and self.peek() in '+-':
+                value += self.advance()
         # Handle Fortran scientific notation (1d-10, 2e5)
         value = value.lower().replace('d', 'e')
         return Token(TokenType.NUMBER, value, start_line, start_col)
@@ -147,15 +155,27 @@ class QELexer:
         start_line = self.line
         start_col = self.column
         value = ''
-        while self.peek().isalnum() or self.peek() in '_':
+        
+        # Check if this is a namelist starting with &
+        is_namelist = False
+        if self.peek() == '&':
+            value += self.advance()  # consume '&'
+            is_namelist = True
+        
+        # Read the identifier
+        while self.peek().isalnum() or self.peek() in '_-':
             value += self.advance()
 
-        # Check for boolean values
-        if value.lower() in ('.true.', '.false.', 't', 'f'):
+        # Handle empty identifier
+        if not value or (is_namelist and len(value) == 1):
+            return Token(TokenType.PARAMETER, value, start_line, start_col)
+
+        # Check for boolean values (must check before namelist)
+        if value.lower() in ('.true.', '.false.', 't', 'f', '.true', '.false'):
             return Token(TokenType.BOOLEAN, value.lower(), start_line, start_col)
 
         # Check for namelist
-        if value.startswith('&') and value[1:].lower() in self.NAMELISTS:
+        if is_namelist and value[1:].lower() in self.NAMELISTS:
             return Token(TokenType.NAMELIST_START, value[1:].lower(), start_line, start_col)
 
         # Check for card
@@ -191,7 +211,7 @@ class QELexer:
                 self.tokens.append(self.read_string())
                 continue
 
-            # Handle numbers
+            # Handle numbers (including those starting with . like .5)
             if self.peek().isdigit() or (self.peek() == '.' and self.peek(1).isdigit()):
                 self.tokens.append(self.read_number())
                 continue
@@ -213,6 +233,19 @@ class QELexer:
                 continue
 
             if self.peek() == ',':
+                self.advance()
+                continue
+
+            if self.peek() == '(':
+                # Handle array indices like celldm(1)
+                self.advance()
+                while self.peek() and self.peek() != ')':
+                    self.advance()
+                if self.peek() == ')':
+                    self.advance()
+                continue
+
+            if self.peek() == ')':
                 self.advance()
                 continue
 
@@ -249,7 +282,7 @@ class QEParser:
         'electron_maxstep': 'Maximum number of SCF iterations',
         'nspin': 'Spin polarization: 1 (no), 2 (yes), 4 (non-collinear)',
         'starting_magnetization': 'Starting magnetic moment',
-        ' occupations': 'Occupation function: smearing, fixed, from_input',
+        'occupations': 'Occupation function: smearing, fixed, from_input',
         'smearing': 'Smearing method: gaussian, methfessel-paxton, marzari-vanderbilt, fermi-dirac',
         'degauss': 'Gaussian spreading (Ry)',
     }
@@ -302,7 +335,7 @@ class QEParser:
         if token.type == TokenType.NUMBER:
             self.advance()
             try:
-                if '.' in token.value:
+                if '.' in token.value or 'e' in token.value.lower():
                     return float(token.value)
                 return int(token.value)
             except ValueError:
@@ -310,7 +343,7 @@ class QEParser:
 
         if token.type == TokenType.BOOLEAN:
             self.advance()
-            return token.value in ('.true.', 't')
+            return token.value in ('.true.', 't', '.true')
 
         if token.type == TokenType.PARAMETER:
             self.advance()
@@ -351,7 +384,8 @@ class QEParser:
                     else:
                         self.error(f"Expected value for parameter '{current_param}'")
                 else:
-                    self.error(f"Expected '=' after parameter '{current_param}'")
+                    # Value might be missing '=' - try to parse anyway
+                    pass
 
             elif self.current().type == TokenType.COMMENT:
                 self.advance()
