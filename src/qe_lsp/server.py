@@ -19,14 +19,12 @@ from lsprotocol.types import (
     DocumentSymbolParams,
     Hover,
     HoverParams,
-    Location,
     MarkupContent,
     MarkupKind,
     Position,
     Range,
     SymbolKind,
     TextDocumentPositionParams,
-    TextEdit,
 )
 from pygls.server import LanguageServer
 from pygls.workspace import Document
