@@ -7,7 +7,6 @@ for hover tooltips and completion descriptions.
 
 from __future__ import annotations
 
-from typing import Any
 
 from .data import get_parameter_doc, get_card_doc, PARAMETER_DOCS, CARD_DOCS
 

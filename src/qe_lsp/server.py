@@ -5,8 +5,7 @@ Quantum ESPRESSO Language Server Protocol implementation
 
 from __future__ import annotations
 
-import re
-from typing import Any, Optional
+from typing import Any
 
 from lsprotocol.types import (
     CompletionItem,
@@ -30,7 +29,7 @@ from pygls.server import LanguageServer
 from pygls.workspace import Document
 
 from .data import get_parameter_doc
-from .parser import QEParser, TokenType, parse
+from .parser import parse
 
 server = LanguageServer("qe-lsp", "0.1.0")
 
