@@ -1,2 +1,59 @@
-"""qe-lsp - Language Server Protocol for qe"""
+"""qe-lsp - Language Server Protocol for Quantum ESPRESSO"""
 __version__ = "0.1.0"
+
+from qe_lsp.parser import (
+    parse_qe_input,
+    get_namelist_params,
+    get_card_names,
+    QEInputFile,
+    Namelist,
+    Card,
+    QEParser,
+    QELexer,
+    Token,
+    TokenType,
+)
+from qe_lsp.data import (
+    get_param_doc,
+    get_card_doc,
+    format_param_hover,
+    format_card_hover,
+)
+
+# Alias for backward compatibility
+get_parameter_doc = get_param_doc
+QEInput = QEInputFile
+parse = parse_qe_input
+
+# Lazy import for server/main to avoid pygls initialization issues
+def __getattr__(name):
+    if name == "server":
+        from qe_lsp.server import _get_server
+        return _get_server()
+    elif name == "main":
+        from qe_lsp.server import main
+        return main
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+__all__ = [
+    "__version__",
+    "parse_qe_input",
+    "parse",
+    "get_parameter_doc",
+    "get_param_doc",
+    "get_namelist_params",
+    "get_card_names",
+    "get_card_doc",
+    "QEInputFile",
+    "QEInput",
+    "Namelist",
+    "Card",
+    "QEParser",
+    "QELexer",
+    "Token",
+    "TokenType",
+    "server",
+    "main",
+    "format_param_hover",
+    "format_card_hover",
+]

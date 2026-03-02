@@ -1,0 +1,48 @@
+! Self-Consistent Field (SCF) calculation for silicon
+! This is a simple example for QE-LSP testing
+
+&control
+    calculation = 'scf'
+    title = 'Silicon SCF'
+    prefix = 'si'
+    pseudo_dir = './pseudo/'
+    outdir = './tmp/'
+    verbosity = 'high'
+    restart_mode = 'from_scratch'
+    wf_collect = .true.
+    tprnfor = .true.
+    tstress = .true.
+/
+
+&system
+    ibrav = 2
+    celldm(1) = 10.26
+    nat = 2
+    ntyp = 1
+    ecutwfc = 30.0
+    ecutrho = 240.0
+    occupations = 'smearing'
+    smearing = 'gaussian'
+    degauss = 0.01
+/
+
+&electrons
+    electron_maxstep = 100
+    conv_thr = 1.0d-8
+    mixing_mode = 'plain'
+    mixing_beta = 0.7
+    mixing_ndim = 8
+    diagonalization = 'david'
+    diago_david_ndim = 4
+    diago_full_acc = .false.
+/
+
+ATOMIC_SPECIES
+ Si  28.0855  Si.pbe-n-rrkjus_psl.1.0.0.UPF
+
+ATOMIC_POSITIONS alat
+ Si   0.000000000   0.000000000   0.000000000
+ Si   0.250000000   0.250000000   0.250000000
+
+K_POINTS automatic
+ 6 6 6 0 0 0

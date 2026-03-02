@@ -1,0 +1,59 @@
+! Variable-cell relaxation for a crystal structure
+
+&control
+    calculation = 'vc-relax'
+    title = 'VC-Relax Example'
+    prefix = 'vc_test'
+    pseudo_dir = './pseudo/'
+    outdir = './tmp/'
+    verbosity = 'high'
+    tprnfor = .true.
+    tstress = .true.
+    etot_conv_thr = 1.0d-5
+    forc_conv_thr = 1.0d-4
+    press_conv_thr = 0.1
+/
+
+&system
+    ibrav = 0
+    nat = 4
+    ntyp = 1
+    ecutwfc = 50.0
+    ecutrho = 400.0
+    occupations = 'smearing'
+    smearing = 'mp'
+    degauss = 0.02
+/
+
+&electrons
+    conv_thr = 1.0d-8
+    mixing_beta = 0.7
+    diagonalization = 'david'
+/
+
+&ions
+    ion_dynamics = 'bfgs'
+/
+
+&cell
+    cell_dynamics = 'bfgs'
+    press = 0.0
+    cell_dofree = 'all'
+/
+
+ATOMIC_SPECIES
+ Si  28.0855  Si.pbe-n-rrkjus_psl.1.0.0.UPF
+
+ATOMIC_POSITIONS crystal
+ Si   0.000000000   0.000000000   0.000000000
+ Si   0.500000000   0.500000000   0.000000000
+ Si   0.500000000   0.000000000   0.500000000
+ Si   0.000000000   0.500000000   0.500000000
+
+K_POINTS automatic
+ 8 8 8 0 0 0
+
+CELL_PARAMETERS angstrom
+  5.430000000   0.000000000   0.000000000
+  0.000000000   5.430000000   0.000000000
+  0.000000000   0.000000000   5.430000000
